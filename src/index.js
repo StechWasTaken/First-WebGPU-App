@@ -2,7 +2,6 @@ import cellShader from './shaders/cell.wgsl';
 import simulationShader from './shaders/simulation.wgsl';
 
 const GRID_SIZE = 256;
-const UPDATE_INTERVAL = 17;
 const WORKGROUP_SIZE = 8;
 
 let step = 0;
@@ -172,38 +171,54 @@ const bindGroups = [
     })
 ];
 
-function updateGrid() {
-    const encoder = device.createCommandEncoder();
+const updateTime = 33.3333;
+let previousTime = performance.now();
+let fpsUpdateTime = updateTime;
 
-    const computePass = encoder.beginComputePass();
+function render(time) {
+    const deltaTime = time - previousTime;
+    previousTime = time;
 
-    computePass.setPipeline(simulationPipeline);
-    computePass.setBindGroup(0, bindGroups[step % 2]);
+    fpsUpdateTime += deltaTime;
 
-    const workgroupCount = Math.ceil(GRID_SIZE / WORKGROUP_SIZE);
-    computePass.dispatchWorkgroups(workgroupCount, workgroupCount);
+    if (fpsUpdateTime >= updateTime) {
 
-    computePass.end();
-
-    step++;
+        const encoder = device.createCommandEncoder();
     
-    const pass = encoder.beginRenderPass({
-        colorAttachments: [{
-        view: context.getCurrentTexture().createView(),
-        loadOp: "clear",
-        clearValue: { r: 0, g: 0, b: 0.4, a: 1.0 },
-        storeOp: "store",
-        }]
-    });
+        const computePass = encoder.beginComputePass();
+    
+        computePass.setPipeline(simulationPipeline);
+        computePass.setBindGroup(0, bindGroups[step % 2]);
+    
+        const workgroupCount = Math.ceil(GRID_SIZE / WORKGROUP_SIZE);
+        computePass.dispatchWorkgroups(workgroupCount, workgroupCount);
+    
+        computePass.end();
+    
+        step++;
+        
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+            view: context.getCurrentTexture().createView(),
+            loadOp: "clear",
+            clearValue: { r: 0, g: 0, b: 0.4, a: 1.0 },
+            storeOp: "store",
+            }]
+        });
+    
+        pass.setPipeline(cellPipeline);
+        pass.setBindGroup(0, bindGroups[step % 2]);
+        pass.setVertexBuffer(0, vertexBuffer);
+        pass.draw(vertices.length / 2, GRID_SIZE * GRID_SIZE);
+    
+        pass.end();
+    
+        device.queue.submit([encoder.finish()]);
 
-    pass.setPipeline(cellPipeline);
-    pass.setBindGroup(0, bindGroups[step % 2]);
-    pass.setVertexBuffer(0, vertexBuffer);
-    pass.draw(vertices.length / 2, GRID_SIZE * GRID_SIZE);
+        fpsUpdateTime = fpsUpdateTime - updateTime;
+    }
 
-    pass.end();
-
-    device.queue.submit([encoder.finish()]);
+    requestAnimationFrame(render);
 }
 
-setInterval(updateGrid, UPDATE_INTERVAL);
+requestAnimationFrame(render);
