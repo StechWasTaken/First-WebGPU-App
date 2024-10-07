@@ -1,15 +1,9 @@
+import cellShader from './shaders/cell.wgsl';
+import simulationShader from './shaders/simulation.wgsl';
+
 const GRID_SIZE = 256;
 const UPDATE_INTERVAL = 17;
 const WORKGROUP_SIZE = 8;
-
-async function loadShader(url) {
-    const response = await fetch(url);
-    const shaderSource = await response.text();
-    return shaderSource;
-}
-
-const cellShader = await loadShader('./shaders/cell.wgsl');
-const simulationShader = await loadShader('./shaders/simulation.wgsl')
 
 let step = 0;
 
